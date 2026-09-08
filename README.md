@@ -8,6 +8,7 @@
 - タイトル・登壇者・カテゴリ・タグ・概要文で検索、カテゴリ絞り込み、「資料/動画/お気に入り」タブでの絞り込みができます。
 - カードの ♡ ボタンで自分用にお気に入り登録できます(ブラウザのlocalStorageに保存・自分だけに表示)。
 - 資料の登録・削除は、ビルドツール不要のブラウザ完結の管理画面（`admin.html`）から行えます。
+- Googleフォームからの投稿にも対応できます（`automation/` 参照）。スタッフはGitHubトークンを用意せず、フォームに入力するだけで新しい資料を追加できます。
 
 ## サイト構成
 
@@ -21,6 +22,7 @@ assets/app.js           … 一覧ページのロジック（検索・絞り込�
 assets/admin.js         … 管理画面のロジック（GitHub API経由でデータをコミット）
 data/materials.json     … 資料データ本体（このファイルをadmin.htmlが書き換える）
 .github/workflows/pages.yml … push時にGitHub Pagesへ自動デプロイ
+automation/             … Googleフォームからの自動投稿の仕組み（Apps Script、任意）
 ```
 
 ## 公開設定（最初の一回だけ）
@@ -74,6 +76,14 @@ data/materials.json     … 資料データ本体（このファイルをadmin.h
   - `https://drive.google.com/open?id=<ID>`
   - `https://docs.google.com/presentation|document|spreadsheets/d/<ID>/edit`
 - 資料・動画の両方を登録した場合、カード/詳細画面に両方のバッジが表示され、詳細画面内のタブで切り替えて閲覧できます。
+
+## Googleフォームからの投稿(スタッフ向け・任意)
+
+管理画面(GitHubトークンが必要)の代わりに、Googleフォームに入力するだけで
+資料を追加できる仕組みも用意しています。GitHubトークンはApps Script側に
+1回だけ設定すればよく、投稿する人はGitHubを一切意識しません。
+
+セットアップ手順は [`automation/README.md`](automation/README.md) を参照してください。
 
 ## ローカルでの確認方法
 
