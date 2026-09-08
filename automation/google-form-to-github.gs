@@ -35,19 +35,21 @@
  *
  * アップロードされたファイルはGoogleフォームの仕様上、まずフォーム所有者の
  * マイドライブ内に自動生成されるフォルダに保存される。放っておくと所有者の
- * マイドライブ容量を圧迫するため、スクリプトプロパティに DRIVE_BACKUP_FOLDER_ID
- * (共有ドライブ内のフォルダID)を設定しておくと、共有設定を変更した直後に
- * そのフォルダへ自動的に移動する(マイドライブの容量は消費しなくなる)。
+ * マイドライブ容量を圧迫するため、スクリプトプロパティに以下の2つ
+ * (資料用・動画用で別々の共有ドライブ)を設定しておくと、共有設定を変更した
+ * 直後にそれぞれ自動的に移動する(マイドライブの容量は消費しなくなる)。
  * 未設定の場合は移動せず、そのままマイドライブに残る。
  *
  * 使う前に、スクリプトエディタの「プロジェクトの設定」→「スクリプト プロパティ」に
  * 以下を登録しておくこと(コードに直接書かない):
- *   GITHUB_TOKEN          … リポジトリへの書き込み権限を持つGitHubのアクセストークン
- *   REPO_OWNER            … andominami
- *   REPO_NAME             … tanpopo-seminar
- *   DRIVE_BACKUP_FOLDER_ID … (任意) アップロードファイルの移動先にする共有ドライブの
- *                             フォルダID。ドライブでそのフォルダを開いたときのURL末尾
- *                             (.../folders/ の後ろ)の文字列。未設定なら移動しない。
+ *   GITHUB_TOKEN                    … リポジトリへの書き込み権限を持つGitHubのアクセストークン
+ *   REPO_OWNER                      … andominami
+ *   REPO_NAME                       … tanpopo-seminar
+ *   DRIVE_BACKUP_FOLDER_ID_MATERIAL … (任意) 資料(写真・PDF)の移動先にする共有ドライブのID
+ *   DRIVE_BACKUP_FOLDER_ID_VIDEO    … (任意) 動画の移動先にする共有ドライブのID
+ *                                      いずれもドライブでそのフォルダ/共有ドライブを開いた
+ *                                      ときのURL末尾(.../folders/ の後ろ)の文字列。
+ *                                      未設定なら移動しない。
  */
 
 // フォームの「カテゴリ」プルダウンと合わせること。
@@ -80,7 +82,8 @@ function onFormSubmit(e) {
   const token = props.getProperty("GITHUB_TOKEN");
   const owner = props.getProperty("REPO_OWNER");
   const repo = props.getProperty("REPO_NAME");
-  const backupFolderId = props.getProperty("DRIVE_BACKUP_FOLDER_ID"); // 任意
+  const materialBackupFolderId = props.getProperty("DRIVE_BACKUP_FOLDER_ID_MATERIAL"); // 任意
+  const videoBackupFolderId = props.getProperty("DRIVE_BACKUP_FOLDER_ID_VIDEO"); // 任意
 
   if (!token || !owner || !repo) {
     throw new Error(
@@ -115,8 +118,8 @@ function onFormSubmit(e) {
     (k) => k.startsWith("資料ファイル") && k.includes("動画")
   );
   // 「資料ファイル」は複数アップロードできるので全件を拾う。動画は1件のみの想定。
-  const materialFiles = resolveDriveUploads(materialAnswer, backupFolderId);
-  const videoFiles = resolveDriveUploads(videoAnswer, backupFolderId);
+  const materialFiles = resolveDriveUploads(materialAnswer, materialBackupFolderId);
+  const videoFiles = resolveDriveUploads(videoAnswer, videoBackupFolderId);
   const materialEntries = materialFiles.map((f) => ({ url: f.url, type: f.isImage ? "image" : "" }));
   const videoUrl = videoFiles.length ? videoFiles[0].url : "";
 
