@@ -174,6 +174,7 @@
       title: String(fd.get('title') || '').trim(),
       date: String(fd.get('date') || '').trim(),
       speaker: String(fd.get('speaker') || '').trim(),
+      submittedBy: String(fd.get('submittedBy') || '').trim(),
       category: String(fd.get('category') || '').trim(),
       tags,
       description: String(fd.get('description') || '').trim(),

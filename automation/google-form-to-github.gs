@@ -5,17 +5,24 @@
  *
  * セットアップ手順は automation/README.md を参照。
  *
- * 前提とするフォームの質問(このままの表記でOK。順番は問わない):
- *   - タイトル       (記述式・必須)
- *   - 実施日         (日付・任意)
- *   - 登壇者・講師    (記述式・任意)
- *   - カテゴリ        (プルダウン・必須。CATEGORIES と同じ選択肢にする)
- *   - タグ           (記述式・任意。カンマ区切りで複数入力可)
- *   - 概要           (段落・任意)
- *   - 資料ファイル    (ファイルのアップロード・任意。PDF/PPTXなど)
- *   - 動画ファイル    (ファイルのアップロード・任意)
+ * 前提とするフォームの質問:
+ *   - タイトル              (記述式・必須)
+ *   - 実施日                (日付)
+ *   - 登壇者・講師           (記述式・任意)
+ *   - カテゴリ               (プルダウン・必須。CATEGORIES と同じ選択肢にする)
+ *   - タグ                  (記述式・任意。カンマ区切りで複数入力可)
+ *   - 概要                  (段落・任意)
+ *   - 投稿者                (記述式・任意)
+ *   - 資料ファイル(写真やPDF) (ファイルのアップロード・任意)
+ *   - 資料ファイル(動画)      (ファイルのアップロード・任意)
  *
- * 「資料ファイル」「動画ファイル」はGoogleフォームの仕様上、まず回答者(または
+ * 質問文は上記と「前方一致」していればよく(例:「タイトル」の後に説明を
+ * 括弧書きで足しても問題ない)、完全に同じ表記でなくても動く。ただし
+ * 「資料ファイル(写真やPDF)」と「資料ファイル(動画)」のように同じ言葉で
+ * 始まる質問が複数ある場合は、「動画」という文字が含まれているかどうかで
+ * 見分けている(下の findAnswer 呼び出し箇所を参照)。
+ *
+ * 「資料ファイル(写真やPDF)」「資料ファイル(動画)」はGoogleフォームの仕様上、まず回答者(または
  * フォーム所有者)のGoogleドライブに保存される。このスクリプトはファイル本体を
  * GitHubにはコピーせず(動画は大きすぎてGitHubに向かないため)、ドライブ上の
  * ファイルの共有設定を「リンクを知っている全員が閲覧可」に変更したうえで、
@@ -26,7 +33,7 @@
  * 以下を登録しておくこと(コードに直接書かない):
  *   GITHUB_TOKEN … リポジトリへの書き込み権限を持つGitHubのアクセストークン
  *   REPO_OWNER   … andominami
- *   REPO_NAME    … -
+ *   REPO_NAME    … tanpopo-seminar
  */
 
 // フォームの「カテゴリ」プルダウンと合わせること。
@@ -67,22 +74,33 @@ function onFormSubmit(e) {
   }
 
   const values = e.namedValues || {};
-  const pick = (key) => ((values[key] || [])[0] || "").trim();
 
-  const title = pick("タイトル");
+  const title = findAnswer(values, (k) => k.startsWith("タイトル"));
   if (!title) return; // タイトル未入力は何もしない(フォーム側の必須設定で基本発生しない想定)
 
-  const speaker = pick("登壇者・講師");
-  const category = CATEGORIES.includes(pick("カテゴリ")) ? pick("カテゴリ") : "その他";
-  const tagsRaw = pick("タグ");
+  const speaker = findAnswer(values, (k) => k.startsWith("登壇者"));
+  const categoryAnswer = findAnswer(values, (k) => k.startsWith("カテゴリ"));
+  const category = CATEGORIES.includes(categoryAnswer) ? categoryAnswer : "その他";
+  const tagsRaw = findAnswer(values, (k) => k.startsWith("タグ"));
   const tags = tagsRaw
     ? tagsRaw.split(/[,、]/).map((s) => s.trim()).filter(Boolean)
     : [];
-  const description = pick("概要");
-  const date = normalizeDate(pick("実施日"));
+  const description = findAnswer(values, (k) => k.startsWith("概要"));
+  const date = normalizeDate(findAnswer(values, (k) => k.startsWith("実施日")));
+  const submittedBy = findAnswer(values, (k) => k.startsWith("投稿者"));
 
-  const materialUrl = resolveDriveUpload(pick("資料ファイル"));
-  const videoUrl = resolveDriveUpload(pick("動画ファイル"));
+  // 「資料ファイル(写真やPDF)」「資料ファイル(動画)」のように同じ言葉で始まる
+  // 質問が複数あるので、「動画」を含むかどうかで見分ける。
+  const materialAnswer = findAnswer(
+    values,
+    (k) => k.startsWith("資料ファイル") && !k.includes("動画")
+  );
+  const videoAnswer = findAnswer(
+    values,
+    (k) => k.startsWith("資料ファイル") && k.includes("動画")
+  );
+  const materialUrl = resolveDriveUpload(materialAnswer);
+  const videoUrl = resolveDriveUpload(videoAnswer);
 
   const id = `form-${Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyyMMdd-HHmmss")}`;
 
@@ -96,6 +114,7 @@ function onFormSubmit(e) {
       category,
       tags,
       description,
+      submittedBy,
       materialUrl,
       videoUrl,
       pinned: false,
@@ -110,6 +129,17 @@ function onFormSubmit(e) {
       sha
     );
   });
+}
+
+/**
+ * e.namedValues(質問文 → 回答値の配列)から、条件に一致する最初の質問の
+ * 回答を取り出す。質問文の完全一致ではなく前方一致等で判定できるため、
+ * 質問文に補足説明を括弧書きで足すなど多少の変更をしても壊れにくい。
+ */
+function findAnswer(namedValues, matcher) {
+  const key = Object.keys(namedValues).find(matcher);
+  if (!key) return "";
+  return ((namedValues[key] || [])[0] || "").trim();
 }
 
 /** data/materials.json の現在の内容とshaを取得する */

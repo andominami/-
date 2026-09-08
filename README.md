@@ -105,6 +105,7 @@ python3 -m http.server 8000
   "category": "カテゴリ名",
   "tags": ["タグ1", "タグ2"],
   "description": "概要文",
+  "submittedBy": "投稿者名（任意。サイトには【投稿者:○○】と表示されます）",
   "materialUrl": "Google Driveの資料リンク（任意）",
   "videoUrl": "Google Driveの動画リンク（任意）",
   "pinned": false

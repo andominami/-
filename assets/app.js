@@ -221,6 +221,7 @@
       ${getCategories(item).map((c) => `<span class="video-category">${escapeHtml(c)}</span>`).join('')}
       ${item.date ? `<span class="video-date">${escapeHtml(formatDate(item.date))}</span>` : ''}
       ${item.speaker ? `<span class="video-date">${escapeHtml(item.speaker)}</span>` : ''}
+      ${item.submittedBy ? `<span class="video-date">【投稿者:${escapeHtml(item.submittedBy)}】</span>` : ''}
       <h3 class="video-title">${escapeHtml(item.title)}</h3>
       <p class="video-description">${escapeHtml(item.description)}</p>
     `;
@@ -286,7 +287,12 @@
       els.modalIframe.src = '';
     }
 
-    const metaParts = [formatDate(item.date), item.speaker, ...getCategories(item)].filter(Boolean);
+    const metaParts = [
+      formatDate(item.date),
+      item.speaker,
+      ...getCategories(item),
+      item.submittedBy ? `【投稿者:${item.submittedBy}】` : '',
+    ].filter(Boolean);
     els.modalTitle.textContent = item.pinned ? `📌 ${item.title}` : item.title;
     els.modalMeta.textContent = metaParts.join(' ・ ');
     els.modalDescription.textContent = item.description || '';
