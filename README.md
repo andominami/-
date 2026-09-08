@@ -1,42 +1,55 @@
 # セミナー資料ライブラリ
 
-社内・社外向けに開催したセミナーの資料と動画をまとめて検索・閲覧できる、GitHub Pages 上の静的サイトです。
+社内向けに開催したセミナーの資料と動画をまとめて検索・閲覧できる、GitHub Pages 上の静的サイトです。
+「たんぽぽ歯科マニュアル」「保険算定ルールノート」と同じ考え方(合言葉ロック・Google Drive埋め込み・ビルド不要の静的サイト)で作っています。
 
 - 資料（PDF/PPT 等）・動画は **Google Drive** にアップロードし、このサイトには共有リンクだけを登録します（リポジトリ自体には大きなファイルは置きません）。
-- サイトからは Google Drive のプレビュー機能を使って、その場で資料や動画を再生できます。
-- タイトル・登壇者・カテゴリ・タグ・概要文で検索・絞り込みができます。
+- サイト全体は**合言葉（パスワード）**で保護されています(社内限定の簡易的な鍵で、厳密なセキュリティではありません)。
+- タイトル・登壇者・カテゴリ・タグ・概要文で検索、カテゴリ絞り込み、「資料/動画/お気に入り」タブでの絞り込みができます。
+- カードの ♡ ボタンで自分用にお気に入り登録できます(ブラウザのlocalStorageに保存・自分だけに表示)。
 - 資料の登録・削除は、ビルドツール不要のブラウザ完結の管理画面（`admin.html`）から行えます。
 
 ## サイト構成
 
 ```
-index.html          … 一覧・検索ページ（誰でも閲覧可）
-admin.html           … 登録・削除フォーム（GitHub トークンを持つ人だけが実質利用可能）
-assets/style.css      … デザイン
-assets/common.js      … 共通ユーティリティ（Google Drive リンク→埋め込みURL変換など）
-assets/app.js         … 一覧ページのロジック（検索・絞り込み・並び替え・プレビュー表示）
-assets/admin.js       … 管理画面のロジック（GitHub API 経由でデータをコミット）
-data/materials.json   … 資料データ本体（このファイルを admin.html が書き換える）
-.github/workflows/pages.yml … push 時に GitHub Pages へ自動デプロイ
+index.html            … 一覧・検索ページ（合言葉入力後に閲覧可）
+admin.html             … 登録・削除フォーム（合言葉 + GitHubトークンを持つ人だけが実質利用可能）
+assets/style.css        … デザイン
+assets/logo.png         … ロゴ画像
+assets/common.js        … 共通ユーティリティ（合言葉ロック・Google Driveリンク変換など）
+assets/app.js           … 一覧ページのロジック（検索・絞り込み・並び替え・プレビュー表示・お気に入り）
+assets/admin.js         … 管理画面のロジック（GitHub API経由でデータをコミット）
+data/materials.json     … 資料データ本体（このファイルをadmin.htmlが書き換える）
+.github/workflows/pages.yml … push時にGitHub Pagesへ自動デプロイ
 ```
-
-資料が増えても本文（PDF/動画そのもの）はリポジトリに入らないため、リポジトリは軽量なまま保てます。
 
 ## 公開設定（最初の一回だけ）
 
-1. このブランチ／変更を `main` ブランチに反映してください（PR をマージ、または直接 push）。
-2. GitHub リポジトリの **Settings → Pages** を開き、「Build and deployment」の **Source** を `GitHub Actions` に設定してください。
+1. このブランチ／変更を `main` ブランチに反映してください（PRをマージ、または直接push）。
+2. GitHubリポジトリの **Settings → Pages** を開き、「Build and deployment」の **Source** を `GitHub Actions` に設定してください。
 3. `main` に push されると `.github/workflows/pages.yml` が自動実行され、`https://<ユーザー名>.github.io/<リポジトリ名>/` で公開されます。
 
-このサイトは全体公開（誰でも閲覧可）を前提にしています。社内限定にしたい場合は GitHub Enterprise/Pro のプライベート Pages 機能や、別途アクセス制限の仕組みが必要です。
+## 合言葉（サイトのパスワード）を設定する
+
+初期状態では仮の合言葉 **`changeme`** が設定されています。**必ず変更してください。**
+
+1. ブラウザのアドレスバーに `javascript:` に続けて下記を貼り付けて実行するか、開発者ツールのコンソールで実行し、新しい合言葉のハッシュ値を作る:
+   ```js
+   crypto.subtle.digest('SHA-256', new TextEncoder().encode('新しい合言葉'))
+     .then(buf => console.log([...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('')))
+   ```
+2. 表示されたハッシュ値を `assets/common.js` の `LOCK_PASSWORD_HASH` に貼り付けて保存し、push する。
+3. スタッフには新しい合言葉を別途(口頭やチャットなど)で共有してください。
+
+合言葉はブラウザのJavaScriptで照合しているだけの簡易的な鍵です。本当に見られてはいけない機密情報は置かないでください。
 
 ## 資料の登録方法（管理者向け）
 
-管理画面 (`admin.html`) はブラウザから GitHub の Contents API を直接呼び出し、`data/materials.json` に対してコミットを行うことでデータを更新します。バックエンドサーバーは不要です。
+管理画面 (`admin.html`) はブラウザからGitHubのContents APIを直接呼び出し、`data/materials.json` に対してコミットを行うことでデータを更新します。バックエンドサーバーは不要です。
 
-### 1. Fine-grained Personal Access Token を発行する
+### 1. Fine-grained Personal Access Tokenを発行する
 
-1. GitHub の **Settings → Developer settings → Personal access tokens → Fine-grained tokens** を開く。
+1. GitHubの **Settings → Developer settings → Personal access tokens → Fine-grained tokens** を開く。
 2. 「Generate new token」をクリック。
 3. **Repository access** はこのリポジトリのみを選択。
 4. **Permissions → Repository permissions → Contents** を `Read and write` に設定（他の権限は付与不要）。
@@ -46,32 +59,30 @@ data/materials.json   … 資料データ本体（このファイルを admin.ht
 
 ### 2. 管理画面から登録する
 
-1. サイトの `admin.html`（トップページ右上「資料を登録・管理する」）を開く。
-2. 発行したトークンを入力し、「このブラウザに保存」（共有 PC では保存しないことを推奨）。
-3. タイトル・実施日・登壇者・カテゴリ・タグ・概要・資料/動画の Google Drive リンクを入力して「登録する」。
-4. 数十秒〜数分待つと GitHub Actions が自動デプロイし、サイトに反映されます。
+1. サイトの `admin.html`（トップページ右上「＋ 資料を登録する」）を開く。合言葉を入力。
+2. 発行したトークンを入力し、「このブラウザに保存」（共有PCでは保存しないことを推奨）。
+3. タイトル・実施日・登壇者・カテゴリ・タグ・概要・資料/動画のGoogle Driveリンクを入力して「登録する」。
+4. 数十秒〜数分待つとGitHub Actionsが自動デプロイし、サイトに反映されます。
 
-削除も同じ画面の「登録済みの資料」一覧から行えます。
+削除も同じ画面の「登録済みの資料」一覧から行えます。「一覧の先頭に固定表示する」にチェックすると、並び替え条件に関わらずその資料が常に一番上に表示されます。
 
-### Google Drive のリンクについて
+### Google Driveのリンクについて
 
-- 資料・動画のファイルは Google Drive にアップロードし、共有設定を **「リンクを知っている全員が閲覧可」** にしてください（そうしないと公開サイトから再生できません）。
-- 対応しているリンク形式（自動でプレビュー埋め込みに変換されます）:
+- 資料・動画のファイルはGoogle Driveにアップロードし、共有設定を **「リンクを知っている全員が閲覧可」** にしてください。
+- 対応しているリンク形式（自動でサムネイル・プレビュー埋め込みに変換されます）:
   - `https://drive.google.com/file/d/<ID>/view?usp=sharing`（PDF・動画などのファイル）
   - `https://drive.google.com/open?id=<ID>`
   - `https://docs.google.com/presentation|document|spreadsheets/d/<ID>/edit`
-- 上記以外の URL の場合は、プレビュー埋め込みはできず新しいタブで開くリンクとして扱われます。
+- 資料・動画の両方を登録した場合、カード/詳細画面に両方のバッジが表示され、詳細画面内のタブで切り替えて閲覧できます。
 
 ## ローカルでの確認方法
 
-ビルド不要の静的サイトなので、簡易サーバーで開けば動作確認できます。
-
 ```bash
 python3 -m http.server 8000
-# ブラウザで http://localhost:8000 を開く
+# ブラウザで http://localhost:8000 を開く（合言葉は初期値 "changeme"）
 ```
 
-（`fetch` で JSON を読み込むため、`file://` で直接開くとブラウザによっては動作しません。必ず簡易サーバー経由で確認してください。）
+（`fetch`でJSONを読み込むため、`file://`で直接開くとブラウザによっては動作しません。必ず簡易サーバー経由で確認してください。）
 
 ## データ形式（`data/materials.json`）
 
@@ -84,10 +95,10 @@ python3 -m http.server 8000
   "category": "カテゴリ名",
   "tags": ["タグ1", "タグ2"],
   "description": "概要文",
-  "materialUrl": "Google Drive の資料リンク（任意）",
-  "videoUrl": "Google Drive の動画リンク（任意）",
-  "thumbnail": "サムネイル画像URL（任意・未使用でも可）"
+  "materialUrl": "Google Driveの資料リンク（任意）",
+  "videoUrl": "Google Driveの動画リンク（任意）",
+  "pinned": false
 }
 ```
 
-管理画面を使わずに、このファイルを直接編集して push しても問題ありません。
+`category` は文字列だけでなく配列でも指定できます（例: `["マーケティング", "全社共通"]`）。管理画面を使わずに、このファイルを直接編集してpushしても問題ありません。

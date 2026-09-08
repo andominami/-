@@ -9,7 +9,7 @@
     "description": "マーケティングの基本用語から実践的なフレームワークまでを解説したセミナーです。これはサンプルデータです。管理画面(admin.html)から削除・編集できます。",
     "materialUrl": "",
     "videoUrl": "",
-    "thumbnail": ""
+    "pinned": true
   },
   {
     "id": "sample-engineering-security",
@@ -21,6 +21,6 @@
     "description": "情報セキュリティの基本方針と、日常業務で気をつけるべきポイントについての研修資料です。これはサンプルデータです。",
     "materialUrl": "",
     "videoUrl": "",
-    "thumbnail": ""
+    "pinned": false
   }
 ]

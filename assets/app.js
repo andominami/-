@@ -1,223 +1,350 @@
 (function () {
   const DATA_URL = 'data/materials.json';
+  const ALL_CATEGORY = 'すべて';
+  const FAVORITES_KEY = 'seminar-lib-favorites';
+
+  function getCategories(item) {
+    if (Array.isArray(item.category)) return item.category;
+    return item.category ? [item.category] : [];
+  }
+
+  function loadFavorites() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(FAVORITES_KEY)) || []);
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function saveFavorites() {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify([...state.favorites]));
+  }
 
   const state = {
-    all: [],
+    items: [],
+    activeCategory: ALL_CATEGORY,
     query: '',
-    category: '',
-    tags: new Set(),
-    sort: 'date-desc',
+    sortOrder: 'new',
+    mediaType: 'all',
+    favorites: loadFavorites(),
   };
 
   const els = {
     grid: document.getElementById('card-grid'),
+    mediaTabs: document.getElementById('media-tabs'),
+    categoryFilters: document.getElementById('category-filters'),
     search: document.getElementById('search-input'),
-    category: document.getElementById('category-filter'),
-    sort: document.getElementById('sort-order'),
-    tagCloud: document.getElementById('tag-cloud'),
+    sort: document.getElementById('sort-select'),
     resultCount: document.getElementById('result-count'),
-    modalOverlay: document.getElementById('modal-overlay'),
+    emptyMessage: document.getElementById('empty-message'),
+    modal: document.getElementById('detail-modal'),
     modalTitle: document.getElementById('modal-title'),
-    modalBody: document.getElementById('modal-body'),
+    modalMeta: document.getElementById('modal-meta'),
+    modalDescription: document.getElementById('modal-description'),
+    modalTabs: document.getElementById('modal-tabs'),
+    modalFrameWrap: document.getElementById('modal-frame-wrap'),
+    modalIframe: document.getElementById('modal-iframe'),
+    modalFavoriteBtn: document.getElementById('modal-favorite-btn'),
     modalClose: document.getElementById('modal-close'),
   };
+
+  let currentItem = null;
+
+  function isFavorite(id) {
+    return state.favorites.has(id);
+  }
+
+  function toggleFavorite(id) {
+    if (state.favorites.has(id)) state.favorites.delete(id);
+    else state.favorites.add(id);
+    saveFavorites();
+  }
+
+  function hasMaterial(item) {
+    return !!driveFileIdFromUrl(item.materialUrl);
+  }
+  function hasVideo(item) {
+    return !!driveFileIdFromUrl(item.videoUrl);
+  }
+
+  function matchesMediaType(item) {
+    switch (state.mediaType) {
+      case 'material':
+        return hasMaterial(item);
+      case 'video':
+        return hasVideo(item);
+      case 'favorite':
+        return isFavorite(item.id);
+      default:
+        return true;
+    }
+  }
+
+  function thumbFileId(item) {
+    const videoId = driveFileIdFromUrl(item.videoUrl);
+    if (videoId) return videoId;
+    return driveFileIdFromUrl(item.materialUrl);
+  }
 
   async function init() {
     try {
       const res = await fetch(DATA_URL, { cache: 'no-store' });
-      state.all = await res.json();
+      state.items = await res.json();
     } catch (e) {
       console.error('資料データの読み込みに失敗しました', e);
-      state.all = [];
+      state.items = [];
     }
-    buildCategoryOptions();
-    buildTagCloud();
     bindEvents();
-    render();
+    renderCategoryFilters();
+    renderGrid();
+    openFromHash();
   }
 
-  function buildCategoryOptions() {
-    const categories = Array.from(new Set(state.all.map((m) => m.category).filter(Boolean))).sort();
-    for (const c of categories) {
-      const opt = document.createElement('option');
-      opt.value = c;
-      opt.textContent = c;
-      els.category.appendChild(opt);
-    }
-  }
-
-  function buildTagCloud() {
-    const tags = Array.from(new Set(state.all.flatMap((m) => m.tags || []))).sort();
-    els.tagCloud.innerHTML = '';
-    for (const tag of tags) {
+  function renderCategoryFilters() {
+    const itemsForTabs = state.items.filter(matchesMediaType);
+    const used = [...new Set(itemsForTabs.flatMap(getCategories))].sort((a, b) =>
+      a.localeCompare(b, 'ja')
+    );
+    const categories = [ALL_CATEGORY, ...used];
+    els.categoryFilters.innerHTML = '';
+    for (const category of categories) {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'tag-chip';
-      btn.textContent = tag;
+      btn.className = 'category-btn' + (category === state.activeCategory ? ' active' : '');
+      btn.textContent = category;
       btn.addEventListener('click', () => {
-        if (state.tags.has(tag)) {
-          state.tags.delete(tag);
-          btn.classList.remove('active');
-        } else {
-          state.tags.add(tag);
-          btn.classList.add('active');
-        }
-        render();
+        state.activeCategory = category;
+        renderCategoryFilters();
+        renderGrid();
       });
-      els.tagCloud.appendChild(btn);
+      els.categoryFilters.appendChild(btn);
     }
   }
 
-  function bindEvents() {
-    els.search.addEventListener('input', () => {
-      state.query = els.search.value.trim().toLowerCase();
-      render();
+  function getFilteredItems() {
+    const query = state.query.trim().toLowerCase();
+    const filtered = state.items.filter((item) => {
+      const matchesCategory =
+        state.activeCategory === ALL_CATEGORY || getCategories(item).includes(state.activeCategory);
+      const haystack = [item.title, item.description, item.speaker, ...(item.tags || [])]
+        .join(' ')
+        .toLowerCase();
+      const matchesQuery = !query || haystack.includes(query);
+      return matchesCategory && matchesMediaType(item) && matchesQuery;
     });
-    els.category.addEventListener('change', () => {
-      state.category = els.category.value;
-      render();
-    });
-    els.sort.addEventListener('change', () => {
-      state.sort = els.sort.value;
-      render();
-    });
-    els.modalClose.addEventListener('click', closeModal);
-    els.modalOverlay.addEventListener('click', (e) => {
-      if (e.target === els.modalOverlay) closeModal();
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeModal();
-    });
-  }
 
-  function matchesQuery(item) {
-    if (!state.query) return true;
-    const haystack = [
-      item.title,
-      item.speaker,
-      item.category,
-      item.description,
-      ...(item.tags || []),
-    ]
-      .join(' ')
-      .toLowerCase();
-    return haystack.includes(state.query);
-  }
+    const pinned = filtered.filter((i) => i.pinned);
+    const rest = filtered.filter((i) => !i.pinned);
 
-  function matchesCategory(item) {
-    return !state.category || item.category === state.category;
-  }
-
-  function matchesTags(item) {
-    if (state.tags.size === 0) return true;
-    const itemTags = new Set(item.tags || []);
-    for (const t of state.tags) {
-      if (itemTags.has(t)) return true;
-    }
-    return false;
-  }
-
-  function sortItems(items) {
-    const sorted = [...items];
-    switch (state.sort) {
-      case 'date-asc':
-        sorted.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    let sortedRest;
+    switch (state.sortOrder) {
+      case 'old':
+        sortedRest = [...rest].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
         break;
-      case 'title-asc':
-        sorted.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ja'));
+      case 'title':
+        sortedRest = [...rest].sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ja'));
         break;
-      case 'date-desc':
+      case 'new':
       default:
-        sorted.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        sortedRest = [...rest].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     }
-    return sorted;
+    return [...pinned, ...sortedRest];
   }
 
-  function render() {
-    const filtered = sortItems(
-      state.all.filter((item) => matchesQuery(item) && matchesCategory(item) && matchesTags(item))
-    );
-
-    els.resultCount.textContent = `${filtered.length} 件の資料`;
+  function renderGrid() {
+    const items = getFilteredItems();
+    els.resultCount.textContent = `${items.length} 件`;
     els.grid.innerHTML = '';
+    els.emptyMessage.hidden = items.length > 0;
 
-    if (filtered.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'empty-state';
-      empty.textContent = '該当する資料が見つかりませんでした。検索条件を変えてお試しください。';
-      els.grid.appendChild(empty);
-      return;
-    }
-
-    for (const item of filtered) {
+    for (const item of items) {
       els.grid.appendChild(renderCard(item));
     }
   }
 
   function renderCard(item) {
-    const card = document.createElement('article');
-    card.className = 'card';
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'video-card';
+    card.addEventListener('click', () => openModal(item));
 
-    const metaParts = [formatDate(item.date), item.speaker, item.category].filter(Boolean);
+    const thumb = document.createElement('div');
+    thumb.className = 'video-thumb';
+    const fileId = thumbFileId(item);
+    if (fileId) {
+      const img = document.createElement('img');
+      img.src = driveThumbUrl(fileId);
+      img.alt = '';
+      img.loading = 'lazy';
+      img.addEventListener('error', () => img.remove());
+      thumb.appendChild(img);
+    } else {
+      thumb.classList.add('is-text');
+    }
 
-    card.innerHTML = `
-      <h2>${escapeHtml(item.title)}</h2>
-      <div class="meta">${escapeHtml(metaParts.join(' ・ '))}</div>
-      <div class="description">${escapeHtml(item.description)}</div>
-      <div class="tags">${(item.tags || []).map((t) => `<span>${escapeHtml(t)}</span>`).join('')}</div>
-      <div class="actions"></div>
+    if (item.pinned) {
+      const pinnedBadge = document.createElement('span');
+      pinnedBadge.className = 'thumb-pinned-badge';
+      pinnedBadge.textContent = '📌';
+      thumb.appendChild(pinnedBadge);
+    }
+
+    const badges = document.createElement('div');
+    badges.className = 'thumb-type-badges';
+    if (hasVideo(item)) {
+      const b = document.createElement('span');
+      b.className = 'thumb-type-badge';
+      b.textContent = '🎬 動画';
+      badges.appendChild(b);
+    }
+    if (hasMaterial(item)) {
+      const b = document.createElement('span');
+      b.className = 'thumb-type-badge';
+      b.textContent = '📄 資料';
+      badges.appendChild(b);
+    }
+    thumb.appendChild(badges);
+
+    const favoriteBtn = document.createElement('span');
+    favoriteBtn.className = 'favorite-btn' + (isFavorite(item.id) ? ' active' : '');
+    favoriteBtn.textContent = isFavorite(item.id) ? '♥' : '♡';
+    favoriteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleFavorite(item.id);
+      renderGrid();
+    });
+    thumb.appendChild(favoriteBtn);
+
+    const info = document.createElement('div');
+    info.className = 'video-info';
+    info.innerHTML = `
+      ${getCategories(item).map((c) => `<span class="video-category">${escapeHtml(c)}</span>`).join('')}
+      ${item.date ? `<span class="video-date">${escapeHtml(formatDate(item.date))}</span>` : ''}
+      ${item.speaker ? `<span class="video-date">${escapeHtml(item.speaker)}</span>` : ''}
+      <h3 class="video-title">${escapeHtml(item.title)}</h3>
+      <p class="video-description">${escapeHtml(item.description)}</p>
     `;
 
-    const actions = card.querySelector('.actions');
-
-    if (item.materialUrl) {
-      actions.appendChild(
-        makeActionButton('資料を見る', item.materialUrl, `${item.title}（資料）`)
-      );
-    }
-    if (item.videoUrl) {
-      actions.appendChild(
-        makeActionButton('動画を見る', item.videoUrl, `${item.title}（動画）`, true)
-      );
-    }
-    if (!item.materialUrl && !item.videoUrl) {
-      const span = document.createElement('span');
-      span.className = 'meta';
-      span.textContent = '資料・動画は準備中です';
-      actions.appendChild(span);
-    }
-
+    card.appendChild(thumb);
+    card.appendChild(info);
     return card;
   }
 
-  function makeActionButton(label, url, title, primary) {
-    const btn = document.createElement('a');
-    btn.className = primary ? 'btn primary' : 'btn';
-    btn.textContent = label;
-    btn.href = url;
-    btn.target = '_blank';
-    btn.rel = 'noopener noreferrer';
-
-    const embedUrl = getEmbeddableUrl(url);
-    if (embedUrl) {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        openModal(title, embedUrl);
-      });
+  function renderModalTabs(item) {
+    els.modalTabs.innerHTML = '';
+    const options = [];
+    if (hasVideo(item)) options.push({ key: 'video', label: '🎬 動画を見る' });
+    if (hasMaterial(item)) options.push({ key: 'material', label: '📄 資料を見る' });
+    if (options.length <= 1) {
+      els.modalTabs.hidden = true;
+      return options[0] ? options[0].key : null;
     }
-    return btn;
+    els.modalTabs.hidden = false;
+    let active = options[0].key;
+    for (const opt of options) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'modal-tab' + (opt.key === active ? ' active' : '');
+      btn.textContent = opt.label;
+      btn.addEventListener('click', () => {
+        for (const b of els.modalTabs.children) b.classList.remove('active');
+        btn.classList.add('active');
+        showModalFrame(item, opt.key);
+      });
+      els.modalTabs.appendChild(btn);
+    }
+    return active;
   }
 
-  function openModal(title, embedUrl) {
-    els.modalTitle.textContent = title;
-    els.modalBody.innerHTML = `<iframe src="${embedUrl}" allow="autoplay" allowfullscreen></iframe>`;
-    els.modalOverlay.hidden = false;
+  function showModalFrame(item, key) {
+    const url = key === 'video' ? item.videoUrl : item.materialUrl;
+    const fileId = driveFileIdFromUrl(url);
+    if (fileId) {
+      els.modalFrameWrap.hidden = false;
+      els.modalFrameWrap.classList.toggle('is-pdf', key === 'material');
+      els.modalIframe.src = driveEmbedUrl(fileId);
+    } else {
+      els.modalFrameWrap.hidden = true;
+      els.modalIframe.src = '';
+    }
+  }
+
+  function renderModalFavoriteBtn() {
+    const active = currentItem && isFavorite(currentItem.id);
+    els.modalFavoriteBtn.classList.toggle('active', !!active);
+    els.modalFavoriteBtn.textContent = active ? '♥' : '♡';
+  }
+
+  function openModal(item) {
+    currentItem = item;
+    renderModalFavoriteBtn();
+    const startKey = renderModalTabs(item);
+    if (startKey) {
+      showModalFrame(item, startKey);
+    } else {
+      els.modalFrameWrap.hidden = true;
+      els.modalIframe.src = '';
+    }
+
+    const metaParts = [formatDate(item.date), item.speaker, ...getCategories(item)].filter(Boolean);
+    els.modalTitle.textContent = item.pinned ? `📌 ${item.title}` : item.title;
+    els.modalMeta.textContent = metaParts.join(' ・ ');
+    els.modalDescription.textContent = item.description || '';
+
+    els.modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    renderGrid();
+    history.replaceState(null, '', `#id=${encodeURIComponent(item.id)}`);
   }
 
   function closeModal() {
-    els.modalOverlay.hidden = true;
-    els.modalBody.innerHTML = '';
+    els.modal.hidden = true;
+    els.modalIframe.src = '';
+    document.body.style.overflow = '';
+    history.replaceState(null, '', location.pathname + location.search);
   }
 
-  init();
+  function openFromHash() {
+    const match = location.hash.match(/^#id=(.+)$/);
+    if (!match) return;
+    const id = decodeURIComponent(match[1]);
+    const item = state.items.find((v) => v.id === id);
+    if (item) openModal(item);
+  }
+
+  function bindEvents() {
+    els.search.addEventListener('input', (e) => {
+      state.query = e.target.value;
+      renderGrid();
+    });
+    els.sort.addEventListener('change', (e) => {
+      state.sortOrder = e.target.value;
+      renderGrid();
+    });
+    for (const tab of els.mediaTabs.querySelectorAll('.media-tab')) {
+      tab.addEventListener('click', () => {
+        state.mediaType = tab.dataset.media;
+        for (const t of els.mediaTabs.querySelectorAll('.media-tab')) {
+          t.classList.toggle('active', t === tab);
+        }
+        renderCategoryFilters();
+        renderGrid();
+      });
+    }
+    els.modalFavoriteBtn.addEventListener('click', () => {
+      if (!currentItem) return;
+      toggleFavorite(currentItem.id);
+      renderModalFavoriteBtn();
+      renderGrid();
+    });
+    els.modalClose.addEventListener('click', closeModal);
+    els.modal.addEventListener('click', (e) => {
+      if (e.target.dataset.close !== undefined) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !els.modal.hidden) closeModal();
+    });
+  }
+
+  initLock(init);
 })();

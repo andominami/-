@@ -4,50 +4,71 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>セミナー資料ライブラリ</title>
-  <meta name="description" content="社内・社外のセミナー資料と動画をまとめて検索・閲覧できるライブラリです。" />
+  <meta name="description" content="社内向けセミナーの資料・動画を検索・閲覧できるライブラリです。" />
+  <link rel="icon" href="assets/logo.png" />
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
-  <div class="page">
+  <div id="lock-screen" class="lock-screen">
+    <form id="lock-form" class="lock-form">
+      <img class="site-logo" src="assets/logo.png" alt="ロゴ" />
+      <p>合言葉を入力してください</p>
+      <input type="password" id="lock-password" placeholder="合言葉" autocomplete="off" />
+      <p id="lock-error" class="lock-error" hidden>合言葉が違います。</p>
+      <button type="submit">入る</button>
+    </form>
+  </div>
+
+  <div id="site-content" hidden>
     <header class="site-header">
-      <div>
-        <h1>セミナー資料ライブラリ</h1>
-        <p class="subtitle">これまで開催したセミナーの資料・動画をまとめて検索できます</p>
-      </div>
-      <a class="admin-link" href="admin.html">資料を登録・管理する</a>
+      <img class="site-logo" src="assets/logo.png" alt="ロゴ" />
+      <h1>セミナー資料ライブラリ</h1>
+      <a class="post-link" href="admin.html">＋ 資料を登録する</a>
     </header>
 
-    <div class="controls">
-      <div class="search-box">
-        <input id="search-input" type="search" placeholder="タイトル・登壇者・タグなどで検索…" />
+    <main>
+      <div id="media-tabs" class="media-tabs" role="tablist" aria-label="資料・動画で絞り込み">
+        <button type="button" class="media-tab active" data-media="all">すべて</button>
+        <button type="button" class="media-tab" data-media="material">資料</button>
+        <button type="button" class="media-tab" data-media="video">動画</button>
+        <button type="button" class="media-tab" data-media="favorite">お気に入り</button>
       </div>
-      <select id="category-filter">
-        <option value="">すべてのカテゴリ</option>
-      </select>
-      <select id="sort-order">
-        <option value="date-desc">新しい順</option>
-        <option value="date-asc">古い順</option>
-        <option value="title-asc">タイトル順</option>
-      </select>
-    </div>
 
-    <div id="tag-cloud" class="tag-cloud"></div>
+      <div class="controls">
+        <input id="search-input" type="search" placeholder="タイトル・登壇者・タグなどで検索…" aria-label="検索" />
+        <select id="sort-select" aria-label="並び替え">
+          <option value="new">新しい順</option>
+          <option value="old">古い順</option>
+          <option value="title">タイトル順</option>
+        </select>
+      </div>
 
-    <div id="result-count" class="result-count"></div>
-    <div id="card-grid" class="card-grid"></div>
+      <div id="category-filters" class="category-filters" role="group" aria-label="カテゴリで絞り込み"></div>
+
+      <p id="result-count" class="result-count"></p>
+      <p id="empty-message" class="empty-message" hidden>該当する資料が見つかりませんでした。</p>
+      <div id="card-grid" class="video-grid"></div>
+    </main>
 
     <footer class="site-footer">
-      <p>Seminar Materials Library — GitHub Pages で公開しています</p>
+      <p>セミナー資料ライブラリ — 資料の登録は「＋ 資料を登録する」から</p>
     </footer>
   </div>
 
-  <div id="modal-overlay" class="modal-overlay" hidden>
-    <div class="modal">
-      <div class="modal-header">
-        <h3 id="modal-title"></h3>
-        <button id="modal-close" class="modal-close" aria-label="閉じる">&times;</button>
+  <div id="detail-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-content">
+      <button type="button" id="modal-close" class="modal-close" data-close aria-label="閉じる">&times;</button>
+      <button type="button" id="modal-favorite-btn" class="modal-favorite-btn" aria-label="お気に入りに追加">♡</button>
+      <div id="modal-tabs" class="modal-tabs" hidden></div>
+      <div id="modal-frame-wrap" class="modal-frame-wrap" hidden>
+        <iframe id="modal-iframe" src="" allow="autoplay" allowfullscreen></iframe>
       </div>
-      <div id="modal-body" class="modal-body"></div>
+      <div class="modal-text">
+        <p id="modal-meta" class="modal-meta"></p>
+        <h2 id="modal-title"></h2>
+        <p id="modal-description"></p>
+      </div>
     </div>
   </div>
 

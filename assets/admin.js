@@ -179,7 +179,7 @@
       description: String(fd.get('description') || '').trim(),
       materialUrl: String(fd.get('materialUrl') || '').trim(),
       videoUrl: String(fd.get('videoUrl') || '').trim(),
-      thumbnail: String(fd.get('thumbnail') || '').trim(),
+      pinned: fd.get('pinned') === 'on',
     };
   }
 
@@ -272,5 +272,5 @@
     }
   }
 
-  init();
+  initLock(init);
 })();
