@@ -7,7 +7,7 @@
 //   await crypto.subtle.digest('SHA-256', new TextEncoder().encode('新しい合言葉'))
 //     .then(buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join(''))
 const LOCK_PASSWORD_HASH =
-  '057ba03d6c44104863dc7361fe4578965d1887360f90a0895882e58a6248fc86'; // 仮の合言葉: "changeme"（必ず変更してください）
+  '90116063acc4ab1bff21066e506c308ccb719a47247ca2b89d7cc89d0fb89880';
 const LOCK_STORAGE_KEY = 'seminar-lib-unlocked';
 
 async function sha256Hex(text) {
