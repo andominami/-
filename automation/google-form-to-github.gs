@@ -1,6 +1,6 @@
 /**
  * Googleフォームの回答(に紐づくスプレッドシート)から自動で発火し、
- * andominami/- リポジトリの data/materials.json に新しいセミナー資料を追加して、
+ * andominami/tanpopo-seminar リポジトリの data/materials.json に新しいセミナー資料を追加して、
  * GitHub Pages のサイトへ自動反映するスクリプト。
  *
  * セットアップ手順は automation/README.md を参照。

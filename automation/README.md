@@ -24,7 +24,7 @@ Googleフォーム回答(資料・動画ファイルを直接アップロード)
 1. GitHubで自分のアイコン → **Settings → Developer settings → Personal access tokens
    → Fine-grained tokens** を開く
 2. **Generate new token**
-   - Repository access: **Only select repositories** → `-`(このリポジトリ)を選択
+   - Repository access: **Only select repositories** → `tanpopo-seminar`(このリポジトリ)を選択
    - Permissions → **Contents** を **Read and write** に設定
    - 有効期限はお好みで(更新の手間を減らすなら長め、セキュリティ重視なら短め)
 3. 発行されたトークン(`github_pat_...`)をコピーしておく
@@ -84,7 +84,7 @@ DH関連
    |---|---|
    | `GITHUB_TOKEN` | 手順1で発行したトークン |
    | `REPO_OWNER` | `andominami` |
-   | `REPO_NAME` | `-` |
+   | `REPO_NAME` | `tanpopo-seminar` |
 
 4. 上部の「時計」アイコン(トリガー)→ **トリガーを追加**
    - 実行する関数: `onFormSubmit`
@@ -97,7 +97,7 @@ DH関連
 ## 5. テストする
 
 実際にフォームから1件テスト投稿してみて、数分後に
-https://andominami.github.io/-/ に反映されているか確認する。
+https://andominami.github.io/tanpopo-seminar/ に反映されているか確認する。
 
 うまく反映されない場合は、Apps Scriptエディタの左側「実行数」から
 エラーログを確認できます(GitHubトークンの権限不足、質問名の表記ゆれ、

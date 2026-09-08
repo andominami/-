@@ -1,7 +1,7 @@
 (function () {
   // このリポジトリの owner/repo。fork して使う場合はここを書き換えてください。
   const OWNER = 'andominami';
-  const REPO = '-';
+  const REPO = 'tanpopo-seminar';
   const DATA_PATH = 'data/materials.json';
   const TOKEN_STORAGE_KEY = 'seminar_lib_admin_token';
 
