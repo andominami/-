@@ -1,11 +1,31 @@
 [
   {
+    "id": "form-20260908-125813",
+    "title": "セミナー",
+    "date": "2026-09-08",
+    "speaker": "なし",
+    "category": "小出セミナー",
+    "tags": [
+      "マニュアル",
+      "新人"
+    ],
+    "description": "概要ありません",
+    "submittedBy": "安藤南美",
+    "materialUrl": "https://drive.google.com/file/d/1r00uVAmiZABtZ78xVrFQAuaHxCeUCzsE/view",
+    "videoUrl": "",
+    "pinned": false
+  },
+  {
     "id": "sample-marketing-basics",
     "title": "【サンプル】はじめてのマーケティング基礎セミナー",
     "date": "2026-03-05",
     "speaker": "山田 太郎",
     "category": "マーケティング",
-    "tags": ["初心者向け", "SEO", "広告運用"],
+    "tags": [
+      "初心者向け",
+      "SEO",
+      "広告運用"
+    ],
     "description": "マーケティングの基本用語から実践的なフレームワークまでを解説したセミナーです。これはサンプルデータです。管理画面(admin.html)から削除・編集できます。",
     "materialUrl": "",
     "videoUrl": "",
@@ -17,7 +37,10 @@
     "date": "2026-01-20",
     "speaker": "佐藤 花子",
     "category": "エンジニアリング",
-    "tags": ["セキュリティ", "社内研修"],
+    "tags": [
+      "セキュリティ",
+      "社内研修"
+    ],
     "description": "情報セキュリティの基本方針と、日常業務で気をつけるべきポイントについての研修資料です。これはサンプルデータです。",
     "materialUrl": "",
     "videoUrl": "",
