@@ -179,6 +179,7 @@
       tags,
       description: String(fd.get('description') || '').trim(),
       materialUrl: String(fd.get('materialUrl') || '').trim(),
+      materialType: fd.get('materialType') === 'image' ? 'image' : '',
       videoUrl: String(fd.get('videoUrl') || '').trim(),
       pinned: fd.get('pinned') === 'on',
     };

@@ -107,6 +107,7 @@ python3 -m http.server 8000
   "description": "概要文",
   "submittedBy": "投稿者名（任意。サイトには【投稿者:○○】と表示されます）",
   "materialUrl": "Google Driveの資料リンク（任意）",
+  "materialType": "写真の場合は \"image\"、それ以外は空文字（任意。写真は画像として大きく表示されます）",
   "videoUrl": "Google Driveの動画リンク（任意）",
   "pinned": false
 }

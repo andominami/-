@@ -99,8 +99,8 @@ function onFormSubmit(e) {
     values,
     (k) => k.startsWith("資料ファイル") && k.includes("動画")
   );
-  const materialUrl = resolveDriveUpload(materialAnswer);
-  const videoUrl = resolveDriveUpload(videoAnswer);
+  const materialResult = resolveDriveUpload(materialAnswer);
+  const videoResult = resolveDriveUpload(videoAnswer);
 
   const id = `form-${Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyyMMdd-HHmmss")}`;
 
@@ -115,8 +115,9 @@ function onFormSubmit(e) {
       tags,
       description,
       submittedBy,
-      materialUrl,
-      videoUrl,
+      materialUrl: materialResult.url,
+      materialType: materialResult.isImage ? "image" : "",
+      videoUrl: videoResult.url,
       pinned: false,
     });
     putFile(
@@ -162,20 +163,41 @@ function fetchMaterialsJson(owner, repo, token) {
 /**
  * ファイルアップロード質問の回答(DriveのURL。複数ファイルはカンマ区切りで
  * 入っているが、ここでは先頭の1件のみを使う)から、共有リンクを作る。
+ * あわせて、写真(画像ファイル)かどうかも判定して返す。写真の場合サイト側は
+ * Driveの汎用プレビュー(ズームアイコン等が出て見づらい)ではなく、画像を
+ * そのまま大きくきれいに表示する。
  * 見つからない・共有設定に失敗した場合は空文字を返す(その場合サイト上では
  * 「準備中」扱いになるだけで、投稿自体は失敗させない)。
  */
 function resolveDriveUpload(answer) {
-  if (!answer) return "";
+  if (!answer) return { url: "", isImage: false };
   const first = answer.split(",")[0].trim();
   const fileId = extractDriveFileId(first);
-  if (!fileId) return "";
+  if (!fileId) return { url: "", isImage: false };
   try {
     setFilePubliclyViewable(fileId);
   } catch (err) {
     console.error(`共有設定に失敗(fileId=${fileId}): ${err}`);
   }
-  return `https://drive.google.com/file/d/${fileId}/view`;
+  let isImage = false;
+  try {
+    isImage = isImageFile(fileId);
+  } catch (err) {
+    console.error(`ファイル種別の判定に失敗(fileId=${fileId}): ${err}`);
+  }
+  return { url: `https://drive.google.com/file/d/${fileId}/view`, isImage };
+}
+
+/** ドライブのファイルが画像(写真)かどうかをMIMEタイプから判定する */
+function isImageFile(fileId) {
+  const token = ScriptApp.getOAuthToken();
+  const res = UrlFetchApp.fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?fields=mimeType&supportsAllDrives=true`,
+    { headers: { Authorization: `Bearer ${token}` }, muteHttpExceptions: true }
+  );
+  if (res.getResponseCode() !== 200) return false;
+  const meta = JSON.parse(res.getContentText());
+  return (meta.mimeType || "").indexOf("image/") === 0;
 }
 
 /** ドライブのファイルを「リンクを知っている全員が閲覧可」に変更する */

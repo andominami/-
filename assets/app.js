@@ -44,6 +44,7 @@
     modalTabs: document.getElementById('modal-tabs'),
     modalFrameWrap: document.getElementById('modal-frame-wrap'),
     modalIframe: document.getElementById('modal-iframe'),
+    modalImage: document.getElementById('modal-image'),
     modalFavoriteBtn: document.getElementById('modal-favorite-btn'),
     modalClose: document.getElementById('modal-close'),
   };
@@ -260,13 +261,33 @@
   function showModalFrame(item, key) {
     const url = key === 'video' ? item.videoUrl : item.materialUrl;
     const fileId = driveFileIdFromUrl(url);
-    if (fileId) {
-      els.modalFrameWrap.hidden = false;
-      els.modalFrameWrap.classList.toggle('is-pdf', key === 'material');
-      els.modalIframe.src = driveEmbedUrl(fileId);
-    } else {
+    const isImage = key === 'material' && item.materialType === 'image';
+
+    if (!fileId) {
       els.modalFrameWrap.hidden = true;
+      els.modalIframe.hidden = false;
       els.modalIframe.src = '';
+      els.modalImage.hidden = true;
+      els.modalImage.src = '';
+      return;
+    }
+
+    els.modalFrameWrap.hidden = false;
+    els.modalFrameWrap.classList.toggle('is-pdf', key === 'material' && !isImage);
+    els.modalFrameWrap.classList.toggle('is-image', isImage);
+
+    if (isImage) {
+      // 写真はGoogle Driveの汎用プレビュー(ズームアイコン等が出て見づらい)ではなく、
+      // 画像そのものを大きく表示する。
+      els.modalIframe.hidden = true;
+      els.modalIframe.src = '';
+      els.modalImage.hidden = false;
+      els.modalImage.src = driveThumbUrl(fileId, 'w1600');
+    } else {
+      els.modalImage.hidden = true;
+      els.modalImage.src = '';
+      els.modalIframe.hidden = false;
+      els.modalIframe.src = driveEmbedUrl(fileId);
     }
   }
 
@@ -306,6 +327,7 @@
   function closeModal() {
     els.modal.hidden = true;
     els.modalIframe.src = '';
+    els.modalImage.src = '';
     document.body.style.overflow = '';
     history.replaceState(null, '', location.pathname + location.search);
   }
