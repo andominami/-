@@ -124,14 +124,50 @@ Googleドライブの汎用プレビュー(ズームアイコンなどが出て�
      (Googleドライブの共有設定を変更する必要があるため、Driveへのアクセス許可も
      求められます。院内利用の範囲であれば許可して問題ありません)
 
-## 5. テストする
+## 5. 権限(認証スコープ)を確認する
+
+「共有設定に失敗」「共有ドライブへの移動に失敗」といったエラーが実行ログに出て、
+かつエラー内容に `ACCESS_TOKEN_SCOPE_INSUFFICIENT` や
+`insufficient authentication scopes` と書かれている場合、Googleドライブへの
+書き込み権限(スコープ)が不足しています。以下の手順で直します。
+
+1. Apps Scriptエディタの ⚙️(プロジェクトの設定)を開き、「\"appsscript.json\" マニフェスト
+   ファイルをエディタに表示する」にチェックを入れる
+2. 左側のファイル一覧に出てくる `appsscript.json` を開き、`oauthScopes` という項目を
+   (なければ)追加する。既存の内容は消さず、以下のように `oauthScopes` を足す:
+
+   ```json
+   {
+     "timeZone": "Asia/Tokyo",
+     "dependencies": {},
+     "exceptionLogging": "STACKDRIVER",
+     "runtimeVersion": "V8",
+     "oauthScopes": [
+       "https://www.googleapis.com/auth/spreadsheets",
+       "https://www.googleapis.com/auth/drive",
+       "https://www.googleapis.com/auth/script.external_request"
+     ]
+   }
+   ```
+
+3. 保存する
+4. `google-form-to-github.gs` に戻り、上部の関数選択プルダウンで
+   **`authorizeDriveAccess`** を選んで **実行**する
+5. 「承認が必要です」という画面が出るので、アカウントを選択 →
+   「このアプリは Google で確認されていません」と出たら「詳細」→
+   「(プロジェクト名)に移動(安全ではないページ)」→ 内容を確認して **許可**
+6. 実行後にエラーが出ても、権限の確認・許可自体はその前に完了しているので問題ない
+
+## 6. テストする
 
 実際にフォームから1件テスト投稿してみて、数分後に
 https://andominami.github.io/tanpopo-seminar/ に反映されているか確認する。
+写真・動画ファイルが、指定した共有ドライブに実際に移動されているかも
+Googleドライブ側で確認する。
 
 うまく反映されない場合は、Apps Scriptエディタの左側「実行数」から
 エラーログを確認できます(GitHubトークンの権限不足、質問名の表記ゆれ、
-アップロードファイルの共有設定失敗などがよくある原因です)。
+権限不足によるアップロードファイルの共有設定失敗などがよくある原因です)。
 
 ## 資料の削除・修正について
 

@@ -69,6 +69,24 @@ const BRANCH = "main";
 const MAX_RETRIES = 3;
 
 /**
+ * 権限(認証スコープ)を確認・許可し直すための関数。
+ *
+ * 共有設定の変更や共有ドライブへの移動でエラーになる場合、Googleドライブへの
+ * 書き込み権限(スコープ)が足りていないことが原因のことが多い。その場合、
+ * このプロジェクトの appsscript.json に oauthScopes を追加したうえで、
+ * この関数をApps Scriptエディタから手動で実行し、表示される確認画面で
+ * 許可し直す(automation/README.md 参照)。実行後にエラーが出ても、
+ * 権限の確認・許可自体はその前に完了しているので問題ない。
+ */
+function authorizeDriveAccess() {
+  DriveApp.getRootFolder();
+  UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/about?fields=user", {
+    headers: { Authorization: `Bearer ${ScriptApp.getOAuthToken()}` },
+    muteHttpExceptions: true,
+  });
+}
+
+/**
  * スプレッドシートの「フォーム送信時」トリガーから呼ばれる関数。
  * トリガーの設定方法は README 参照(onOpen等では自動発火しないため、
  * 手動でインストール型トリガーを登録する必要がある)。
