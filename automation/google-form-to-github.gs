@@ -33,11 +33,21 @@
  * そのファイルへの共有リンクだけを data/materials.json に保存する。
  * サイト側は既存の Google Drive 埋め込み表示の仕組みでそのまま再生・プレビューできる。
  *
+ * アップロードされたファイルはGoogleフォームの仕様上、まずフォーム所有者の
+ * マイドライブ内に自動生成されるフォルダに保存される。放っておくと所有者の
+ * マイドライブ容量を圧迫するため、スクリプトプロパティに DRIVE_BACKUP_FOLDER_ID
+ * (共有ドライブ内のフォルダID)を設定しておくと、共有設定を変更した直後に
+ * そのフォルダへ自動的に移動する(マイドライブの容量は消費しなくなる)。
+ * 未設定の場合は移動せず、そのままマイドライブに残る。
+ *
  * 使う前に、スクリプトエディタの「プロジェクトの設定」→「スクリプト プロパティ」に
  * 以下を登録しておくこと(コードに直接書かない):
- *   GITHUB_TOKEN … リポジトリへの書き込み権限を持つGitHubのアクセストークン
- *   REPO_OWNER   … andominami
- *   REPO_NAME    … tanpopo-seminar
+ *   GITHUB_TOKEN          … リポジトリへの書き込み権限を持つGitHubのアクセストークン
+ *   REPO_OWNER            … andominami
+ *   REPO_NAME             … tanpopo-seminar
+ *   DRIVE_BACKUP_FOLDER_ID … (任意) アップロードファイルの移動先にする共有ドライブの
+ *                             フォルダID。ドライブでそのフォルダを開いたときのURL末尾
+ *                             (.../folders/ の後ろ)の文字列。未設定なら移動しない。
  */
 
 // フォームの「カテゴリ」プルダウンと合わせること。
@@ -70,6 +80,7 @@ function onFormSubmit(e) {
   const token = props.getProperty("GITHUB_TOKEN");
   const owner = props.getProperty("REPO_OWNER");
   const repo = props.getProperty("REPO_NAME");
+  const backupFolderId = props.getProperty("DRIVE_BACKUP_FOLDER_ID"); // 任意
 
   if (!token || !owner || !repo) {
     throw new Error(
@@ -104,8 +115,8 @@ function onFormSubmit(e) {
     (k) => k.startsWith("資料ファイル") && k.includes("動画")
   );
   // 「資料ファイル」は複数アップロードできるので全件を拾う。動画は1件のみの想定。
-  const materialFiles = resolveDriveUploads(materialAnswer);
-  const videoFiles = resolveDriveUploads(videoAnswer);
+  const materialFiles = resolveDriveUploads(materialAnswer, backupFolderId);
+  const videoFiles = resolveDriveUploads(videoAnswer, backupFolderId);
   const materialEntries = materialFiles.map((f) => ({ url: f.url, type: f.isImage ? "image" : "" }));
   const videoUrl = videoFiles.length ? videoFiles[0].url : "";
 
@@ -172,10 +183,15 @@ function fetchMaterialsJson(owner, repo, token) {
  * あわせて、写真(画像ファイル)かどうかも判定して返す。写真の場合サイト側は
  * Driveの汎用プレビュー(ズームアイコン等が出て見づらい)ではなく、画像を
  * そのまま大きくきれいに表示する。
+ *
+ * backupFolderId が指定されている場合、共有設定の変更後にそのファイルを
+ * 共有ドライブの当該フォルダへ移動する(フォーム所有者のマイドライブ容量を
+ * 圧迫しないようにするため)。指定がなければ移動しない。
+ *
  * 回答が空・ファイルが見つからない場合は空配列を返す(その場合サイト上では
  * 「準備中」扱いになるだけで、投稿自体は失敗させない)。
  */
-function resolveDriveUploads(answer) {
+function resolveDriveUploads(answer, backupFolderId) {
   if (!answer) return [];
   const urls = answer.split(",").map((s) => s.trim()).filter(Boolean);
   const results = [];
@@ -193,9 +209,53 @@ function resolveDriveUploads(answer) {
     } catch (err) {
       console.error(`ファイル種別の判定に失敗(fileId=${fileId}): ${err}`);
     }
+    if (backupFolderId) {
+      try {
+        moveDriveFileToFolder(fileId, backupFolderId);
+      } catch (err) {
+        // 共有ドライブへの移動に失敗しても、サイトへの反映自体は続行する
+        // (マイドライブに残ったままになるだけ)。
+        console.error(`共有ドライブへの移動に失敗(fileId=${fileId}): ${err}`);
+      }
+    }
     results.push({ url: `https://drive.google.com/file/d/${fileId}/view`, isImage });
   });
   return results;
+}
+
+/**
+ * ドライブのファイルを指定フォルダ(共有ドライブでも可)へ移動する。
+ * マイドライブから外れるので、フォーム所有者個人の容量は消費しなくなる。
+ *
+ * DriveApp(Apps Scriptの標準サービス)は共有ドライブをきちんとサポートしていないため、
+ * Drive APIを直接(supportsAllDrives=trueを付けて)呼び出す。
+ */
+function moveDriveFileToFolder(fileId, destFolderId) {
+  const token = ScriptApp.getOAuthToken();
+  const headers = { Authorization: `Bearer ${token}` };
+
+  // 現在の親フォルダを取得(移動時にremoveParentsとして外すため)
+  const metaRes = UrlFetchApp.fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents&supportsAllDrives=true`,
+    { headers, muteHttpExceptions: true }
+  );
+  let removeParents = "";
+  if (metaRes.getResponseCode() === 200) {
+    const meta = JSON.parse(metaRes.getContentText());
+    removeParents = (meta.parents || []).join(",");
+  }
+
+  const params =
+    `addParents=${encodeURIComponent(destFolderId)}` +
+    (removeParents ? `&removeParents=${encodeURIComponent(removeParents)}` : "") +
+    `&supportsAllDrives=true`;
+  const res = UrlFetchApp.fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?${params}`,
+    { method: "patch", headers, muteHttpExceptions: true }
+  );
+  if (res.getResponseCode() !== 200) {
+    throw new Error(`ドライブファイルの移動に失敗しました: ${res.getContentText()}`);
+  }
 }
 
 /** ドライブのファイルが画像(写真)かどうかをMIMEタイプから判定する */
