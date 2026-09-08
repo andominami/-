@@ -45,11 +45,17 @@
     modalFrameWrap: document.getElementById('modal-frame-wrap'),
     modalIframe: document.getElementById('modal-iframe'),
     modalImage: document.getElementById('modal-image'),
+    modalNav: document.getElementById('modal-material-nav'),
+    modalNavPrev: document.getElementById('modal-material-prev'),
+    modalNavNext: document.getElementById('modal-material-next'),
+    modalNavCount: document.getElementById('modal-material-count'),
     modalFavoriteBtn: document.getElementById('modal-favorite-btn'),
     modalClose: document.getElementById('modal-close'),
   };
 
   let currentItem = null;
+  let currentMaterials = [];
+  let currentMaterialIndex = 0;
 
   function isFavorite(id) {
     return state.favorites.has(id);
@@ -61,8 +67,11 @@
     saveFavorites();
   }
 
+  function getMaterials(item) {
+    return Array.isArray(item.materials) ? item.materials : [];
+  }
   function hasMaterial(item) {
-    return !!driveFileIdFromUrl(item.materialUrl);
+    return getMaterials(item).some((m) => driveFileIdFromUrl(m.url));
   }
   function hasVideo(item) {
     return !!driveFileIdFromUrl(item.videoUrl);
@@ -84,7 +93,8 @@
   function thumbFileId(item) {
     const videoId = driveFileIdFromUrl(item.videoUrl);
     if (videoId) return videoId;
-    return driveFileIdFromUrl(item.materialUrl);
+    const firstMaterial = getMaterials(item).find((m) => driveFileIdFromUrl(m.url));
+    return firstMaterial ? driveFileIdFromUrl(firstMaterial.url) : null;
   }
 
   async function init() {
@@ -198,10 +208,11 @@
       b.textContent = '🎬 動画';
       badges.appendChild(b);
     }
-    if (hasMaterial(item)) {
+    const materialCount = getMaterials(item).filter((m) => driveFileIdFromUrl(m.url)).length;
+    if (materialCount > 0) {
       const b = document.createElement('span');
       b.className = 'thumb-type-badge';
-      b.textContent = '📄 資料';
+      b.textContent = materialCount > 1 ? `📄 資料 (${materialCount})` : '📄 資料';
       badges.appendChild(b);
     }
     thumb.appendChild(badges);
@@ -259,21 +270,46 @@
   }
 
   function showModalFrame(item, key) {
-    const url = key === 'video' ? item.videoUrl : item.materialUrl;
-    const fileId = driveFileIdFromUrl(url);
-    const isImage = key === 'material' && item.materialType === 'image';
+    if (key === 'material') {
+      currentMaterials = getMaterials(item).filter((m) => driveFileIdFromUrl(m.url));
+      currentMaterialIndex = 0;
+    } else {
+      currentMaterials = [];
+      currentMaterialIndex = 0;
+    }
+    renderModalNav();
 
-    if (!fileId) {
-      els.modalFrameWrap.hidden = true;
-      els.modalIframe.hidden = false;
-      els.modalIframe.src = '';
-      els.modalImage.hidden = true;
-      els.modalImage.src = '';
+    if (key === 'material') {
+      renderModalMaterial();
       return;
     }
 
+    // 動画は1件のみ
+    const fileId = driveFileIdFromUrl(item.videoUrl);
+    if (!fileId) {
+      els.modalFrameWrap.hidden = true;
+      return;
+    }
     els.modalFrameWrap.hidden = false;
-    els.modalFrameWrap.classList.toggle('is-pdf', key === 'material' && !isImage);
+    els.modalFrameWrap.classList.remove('is-pdf', 'is-image');
+    els.modalImage.hidden = true;
+    els.modalImage.src = '';
+    els.modalIframe.hidden = false;
+    els.modalIframe.src = driveEmbedUrl(fileId);
+  }
+
+  /** 「資料」タブ内の、現在の currentMaterialIndex 番目のファイルを表示する */
+  function renderModalMaterial() {
+    const entry = currentMaterials[currentMaterialIndex];
+    if (!entry) {
+      els.modalFrameWrap.hidden = true;
+      return;
+    }
+    const fileId = driveFileIdFromUrl(entry.url);
+    const isImage = entry.type === 'image';
+
+    els.modalFrameWrap.hidden = false;
+    els.modalFrameWrap.classList.toggle('is-pdf', !isImage);
     els.modalFrameWrap.classList.toggle('is-image', isImage);
 
     if (isImage) {
@@ -288,6 +324,15 @@
       els.modalImage.src = '';
       els.modalIframe.hidden = false;
       els.modalIframe.src = driveEmbedUrl(fileId);
+    }
+  }
+
+  /** 資料が複数枚あるときだけ、前へ/次へ + 枚数カウンターを表示する */
+  function renderModalNav() {
+    const showNav = currentMaterials.length > 1;
+    els.modalNav.hidden = !showNav;
+    if (showNav) {
+      els.modalNavCount.textContent = `${currentMaterialIndex + 1} / ${currentMaterials.length}`;
     }
   }
 
@@ -306,6 +351,9 @@
     } else {
       els.modalFrameWrap.hidden = true;
       els.modalIframe.src = '';
+      currentMaterials = [];
+      currentMaterialIndex = 0;
+      renderModalNav();
     }
 
     const metaParts = [
@@ -328,6 +376,8 @@
     els.modal.hidden = true;
     els.modalIframe.src = '';
     els.modalImage.src = '';
+    currentMaterials = [];
+    currentMaterialIndex = 0;
     document.body.style.overflow = '';
     history.replaceState(null, '', location.pathname + location.search);
   }
@@ -364,6 +414,18 @@
       toggleFavorite(currentItem.id);
       renderModalFavoriteBtn();
       renderGrid();
+    });
+    els.modalNavPrev.addEventListener('click', () => {
+      if (currentMaterials.length === 0) return;
+      currentMaterialIndex = (currentMaterialIndex - 1 + currentMaterials.length) % currentMaterials.length;
+      renderModalMaterial();
+      renderModalNav();
+    });
+    els.modalNavNext.addEventListener('click', () => {
+      if (currentMaterials.length === 0) return;
+      currentMaterialIndex = (currentMaterialIndex + 1) % currentMaterials.length;
+      renderModalMaterial();
+      renderModalNav();
     });
     els.modalClose.addEventListener('click', closeModal);
     els.modal.addEventListener('click', (e) => {

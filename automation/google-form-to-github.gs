@@ -13,8 +13,8 @@
  *   - タグ                  (記述式・任意。カンマ区切りで複数入力可)
  *   - 概要                  (段落・任意)
  *   - 投稿者                (記述式・任意)
- *   - 資料ファイル(写真やPDF) (ファイルのアップロード・任意)
- *   - 資料ファイル(動画)      (ファイルのアップロード・任意)
+ *   - 資料ファイル(写真やPDF) (ファイルのアップロード・任意・複数可)
+ *   - 資料ファイル(動画)      (ファイルのアップロード・任意・1個のみ)
  *
  * 質問文は上記と「前方一致」していればよく(例:「タイトル」の後に説明を
  * 括弧書きで足しても問題ない)、完全に同じ表記でなくても動く。ただし
@@ -22,7 +22,11 @@
  * 始まる質問が複数ある場合は、「動画」という文字が含まれているかどうかで
  * 見分けている(下の findAnswer 呼び出し箇所を参照)。
  *
- * 「資料ファイル(写真やPDF)」「資料ファイル(動画)」はGoogleフォームの仕様上、まず回答者(または
+ * 「資料ファイル(写真やPDF)」は複数ファイルをまとめてアップロードでき、
+ * サイト側では1件の投稿の中で前へ/次へをめくって見られる。「資料ファイル
+ * (動画)」はフォーム側の設定で1個までに制限すること(先頭の1件しか使わない)。
+ *
+ * これらのファイルはGoogleフォームの仕様上、まず回答者(または
  * フォーム所有者)のGoogleドライブに保存される。このスクリプトはファイル本体を
  * GitHubにはコピーせず(動画は大きすぎてGitHubに向かないため)、ドライブ上の
  * ファイルの共有設定を「リンクを知っている全員が閲覧可」に変更したうえで、
@@ -99,8 +103,11 @@ function onFormSubmit(e) {
     values,
     (k) => k.startsWith("資料ファイル") && k.includes("動画")
   );
-  const materialResult = resolveDriveUpload(materialAnswer);
-  const videoResult = resolveDriveUpload(videoAnswer);
+  // 「資料ファイル」は複数アップロードできるので全件を拾う。動画は1件のみの想定。
+  const materialFiles = resolveDriveUploads(materialAnswer);
+  const videoFiles = resolveDriveUploads(videoAnswer);
+  const materialEntries = materialFiles.map((f) => ({ url: f.url, type: f.isImage ? "image" : "" }));
+  const videoUrl = videoFiles.length ? videoFiles[0].url : "";
 
   const id = `form-${Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyyMMdd-HHmmss")}`;
 
@@ -115,9 +122,8 @@ function onFormSubmit(e) {
       tags,
       description,
       submittedBy,
-      materialUrl: materialResult.url,
-      materialType: materialResult.isImage ? "image" : "",
-      videoUrl: videoResult.url,
+      materials: materialEntries,
+      videoUrl,
       pinned: false,
     });
     putFile(
@@ -162,30 +168,34 @@ function fetchMaterialsJson(owner, repo, token) {
 
 /**
  * ファイルアップロード質問の回答(DriveのURL。複数ファイルはカンマ区切りで
- * 入っているが、ここでは先頭の1件のみを使う)から、共有リンクを作る。
+ * 入っている)から、アップロードされた全ファイル分の共有リンクを作る。
  * あわせて、写真(画像ファイル)かどうかも判定して返す。写真の場合サイト側は
  * Driveの汎用プレビュー(ズームアイコン等が出て見づらい)ではなく、画像を
  * そのまま大きくきれいに表示する。
- * 見つからない・共有設定に失敗した場合は空文字を返す(その場合サイト上では
+ * 回答が空・ファイルが見つからない場合は空配列を返す(その場合サイト上では
  * 「準備中」扱いになるだけで、投稿自体は失敗させない)。
  */
-function resolveDriveUpload(answer) {
-  if (!answer) return { url: "", isImage: false };
-  const first = answer.split(",")[0].trim();
-  const fileId = extractDriveFileId(first);
-  if (!fileId) return { url: "", isImage: false };
-  try {
-    setFilePubliclyViewable(fileId);
-  } catch (err) {
-    console.error(`共有設定に失敗(fileId=${fileId}): ${err}`);
-  }
-  let isImage = false;
-  try {
-    isImage = isImageFile(fileId);
-  } catch (err) {
-    console.error(`ファイル種別の判定に失敗(fileId=${fileId}): ${err}`);
-  }
-  return { url: `https://drive.google.com/file/d/${fileId}/view`, isImage };
+function resolveDriveUploads(answer) {
+  if (!answer) return [];
+  const urls = answer.split(",").map((s) => s.trim()).filter(Boolean);
+  const results = [];
+  urls.forEach((url) => {
+    const fileId = extractDriveFileId(url);
+    if (!fileId) return;
+    try {
+      setFilePubliclyViewable(fileId);
+    } catch (err) {
+      console.error(`共有設定に失敗(fileId=${fileId}): ${err}`);
+    }
+    let isImage = false;
+    try {
+      isImage = isImageFile(fileId);
+    } catch (err) {
+      console.error(`ファイル種別の判定に失敗(fileId=${fileId}): ${err}`);
+    }
+    results.push({ url: `https://drive.google.com/file/d/${fileId}/view`, isImage });
+  });
+  return results;
 }
 
 /** ドライブのファイルが画像(写真)かどうかをMIMEタイプから判定する */
