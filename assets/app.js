@@ -28,6 +28,7 @@
   const state = {
     items: [],
     activeCategory: ALL_CATEGORY,
+    activeTag: null,
     query: '',
     sortOrder: 'new',
     mediaType: 'all',
@@ -38,6 +39,7 @@
     grid: document.getElementById('card-grid'),
     mediaTabs: document.getElementById('media-tabs'),
     categoryFilters: document.getElementById('category-filters'),
+    activeTagBar: document.getElementById('active-tag-bar'),
     search: document.getElementById('search-input'),
     sort: document.getElementById('sort-select'),
     resultCount: document.getElementById('result-count'),
@@ -188,11 +190,12 @@
     const filtered = state.items.filter((item) => {
       const matchesCategory =
         state.activeCategory === ALL_CATEGORY || getCategories(item).includes(state.activeCategory);
+      const matchesTag = !state.activeTag || (item.tags || []).includes(state.activeTag);
       const haystack = [item.title, item.description, item.speaker, ...(item.tags || [])]
         .join(' ')
         .toLowerCase();
       const matchesQuery = !query || haystack.includes(query);
-      return matchesCategory && matchesMediaType(item) && matchesQuery;
+      return matchesCategory && matchesTag && matchesMediaType(item) && matchesQuery;
     });
 
     const pinned = filtered.filter((i) => i.pinned);
@@ -296,9 +299,51 @@
       <p class="video-description">${escapeHtml(item.description)}</p>
     `;
 
+    const tags = item.tags || [];
+    if (tags.length) {
+      const tagRow = document.createElement('div');
+      tagRow.className = 'video-tags';
+      for (const tag of tags) {
+        const tagBtn = document.createElement('span');
+        tagBtn.className = 'tag-chip-small' + (state.activeTag === tag ? ' active' : '');
+        tagBtn.textContent = `#${tag}`;
+        tagBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleActiveTag(tag);
+        });
+        tagRow.appendChild(tagBtn);
+      }
+      info.appendChild(tagRow);
+    }
+
     card.appendChild(thumb);
     card.appendChild(info);
     return card;
+  }
+
+  function toggleActiveTag(tag) {
+    state.activeTag = state.activeTag === tag ? null : tag;
+    renderActiveTagBar();
+    renderGrid();
+  }
+
+  function renderActiveTagBar() {
+    if (!state.activeTag) {
+      els.activeTagBar.hidden = true;
+      els.activeTagBar.innerHTML = '';
+      return;
+    }
+    els.activeTagBar.hidden = false;
+    els.activeTagBar.innerHTML = '';
+    const label = document.createElement('span');
+    label.textContent = `タグ「${state.activeTag}」で絞り込み中`;
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'active-tag-clear';
+    clearBtn.textContent = '✕ 解除';
+    clearBtn.addEventListener('click', () => toggleActiveTag(state.activeTag));
+    els.activeTagBar.appendChild(label);
+    els.activeTagBar.appendChild(clearBtn);
   }
 
   function renderModalTabs(item) {
