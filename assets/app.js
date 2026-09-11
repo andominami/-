@@ -3,6 +3,11 @@
   const ALL_CATEGORY = 'すべて';
   const FAVORITES_KEY = 'seminar-lib-favorites';
 
+  // 再生数カウンター(Google Apps Script Webアプリ)のURL。
+  // 未設定(空文字)の間は再生数機能を静かに無効化する。
+  // セットアップ方法は automation/view-counter-README.md を参照。
+  const VIEW_COUNTER_API_URL = '';
+
   function getCategories(item) {
     if (Array.isArray(item.category)) return item.category;
     return item.category ? [item.category] : [];
@@ -108,7 +113,53 @@
     bindEvents();
     renderCategoryFilters();
     renderGrid();
+    await loadViewCounts();
+    renderGrid();
     openFromHash();
+  }
+
+  /** 再生数カウンターへ通信し、全資料分の件数を state.items へ merge する */
+  async function loadViewCounts() {
+    if (!VIEW_COUNTER_API_URL) return;
+    try {
+      const res = await fetch(`${VIEW_COUNTER_API_URL}?action=counts`);
+      const counts = await res.json();
+      state.items.forEach((item) => {
+        item.views = counts[item.id] || 0;
+      });
+    } catch (err) {
+      console.error('再生数の取得に失敗しました', err);
+    }
+  }
+
+  /** 資料を開いたことをカウンターに記録する(結果を待たず、失敗しても表示には影響させない) */
+  function recordView(item) {
+    if (!VIEW_COUNTER_API_URL) return;
+    fetch(`${VIEW_COUNTER_API_URL}?action=hit&id=${encodeURIComponent(item.id)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (typeof data.count !== 'number') return;
+        item.views = data.count;
+        if (currentItem === item) {
+          els.modalMeta.textContent = buildMetaText(item);
+        }
+      })
+      .catch((err) => console.error('再生数の記録に失敗しました', err));
+  }
+
+  function viewCountText(item) {
+    return typeof item.views === 'number' ? `再生: ${item.views}回` : '';
+  }
+
+  function buildMetaText(item) {
+    const metaParts = [
+      formatDate(item.date),
+      item.speaker,
+      ...getCategories(item),
+      viewCountText(item),
+      item.submittedBy ? `【投稿者:${item.submittedBy}】` : '',
+    ].filter(Boolean);
+    return metaParts.join(' ・ ');
   }
 
   function renderCategoryFilters() {
@@ -154,6 +205,12 @@
         break;
       case 'title':
         sortedRest = [...rest].sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ja'));
+        break;
+      case 'views-desc':
+        sortedRest = [...rest].sort((a, b) => (b.views || 0) - (a.views || 0));
+        break;
+      case 'views-asc':
+        sortedRest = [...rest].sort((a, b) => (a.views || 0) - (b.views || 0));
         break;
       case 'new':
       default:
@@ -233,6 +290,7 @@
       ${getCategories(item).map((c) => `<span class="video-category">${escapeHtml(c)}</span>`).join('')}
       ${item.date ? `<span class="video-date">${escapeHtml(formatDate(item.date))}</span>` : ''}
       ${item.speaker ? `<span class="video-date">${escapeHtml(item.speaker)}</span>` : ''}
+      ${viewCountText(item) ? `<span class="video-date">${escapeHtml(viewCountText(item))}</span>` : ''}
       ${item.submittedBy ? `<span class="video-date">【投稿者:${escapeHtml(item.submittedBy)}】</span>` : ''}
       <h3 class="video-title">${escapeHtml(item.title)}</h3>
       <p class="video-description">${escapeHtml(item.description)}</p>
@@ -356,15 +414,10 @@
       renderModalNav();
     }
 
-    const metaParts = [
-      formatDate(item.date),
-      item.speaker,
-      ...getCategories(item),
-      item.submittedBy ? `【投稿者:${item.submittedBy}】` : '',
-    ].filter(Boolean);
     els.modalTitle.textContent = item.pinned ? `📌 ${item.title}` : item.title;
-    els.modalMeta.textContent = metaParts.join(' ・ ');
+    els.modalMeta.textContent = buildMetaText(item);
     els.modalDescription.textContent = item.description || '';
+    recordView(item);
 
     els.modal.hidden = false;
     document.body.style.overflow = 'hidden';

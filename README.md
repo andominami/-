@@ -9,6 +9,7 @@
 - カードの ♡ ボタンで自分用にお気に入り登録できます(ブラウザのlocalStorageに保存・自分だけに表示)。
 - 資料は**Googleフォーム**から投稿します（`automation/` 参照）。GitHubの知識やトークンは不要で、スタッフはフォームに入力するだけです。
 - 登録済みの資料の**削除・修正**は、このリポジトリを操作しているClaudeのチャットに頼んでください（「この資料を削除して」「日付を直して」など）。GitHubの操作に慣れている場合は `data/materials.json` を直接編集してpushしても構いません。
+- 資料ごとの**再生数**を数えて「再生数順」に並び替えられます(任意・セットアップが必要。`automation/view-counter-README.md` 参照)。
 
 ## サイト構成
 
@@ -20,7 +21,7 @@ assets/common.js               … 共通ユーティリティ（合言葉ロッ
 assets/app.js                  … 一覧ページのロジック（検索・絞り込み・並び替え・プレビュー表示・お気に入り）
 data/materials.json            … 資料データ本体
 .github/workflows/pages.yml    … push時にGitHub Pagesへ自動デプロイ
-automation/                    … Googleフォームからの自動投稿の仕組み（Apps Script）
+automation/                    … Googleフォームからの自動投稿・再生数カウンターの仕組み（Apps Script）
 ```
 
 ## 公開設定（最初の一回だけ）
