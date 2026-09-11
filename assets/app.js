@@ -6,7 +6,7 @@
   // 再生数カウンター(Google Apps Script Webアプリ)のURL。
   // 未設定(空文字)の間は再生数機能を静かに無効化する。
   // セットアップ方法は automation/view-counter-README.md を参照。
-  const VIEW_COUNTER_API_URL = '';
+  const VIEW_COUNTER_API_URL = 'https://script.google.com/macros/s/AKfycbwbbl2H-ZRiR0E6jpp2uZUyeBSalyrf6s4a1xlVX8MeaN0KLYgCMQbtckG3ZKNwNzsyHA/exec';
 
   function getCategories(item) {
     if (Array.isArray(item.category)) return item.category;
